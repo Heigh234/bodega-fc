@@ -15,7 +15,8 @@ export default async function handler(req, res) {
     const { data: productos, error } = await supabase
       .from('productos')
       .select('*')
-      .order('nombre_display', { ascending: true });
+      .order('nombre_display', { ascending: true })
+      .limit(5000);
 
     if (error) throw error;
 
