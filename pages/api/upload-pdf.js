@@ -1,12 +1,9 @@
-const formidable = require('formidable');
-const fs = require('fs');
-const { createClient } = require('@supabase/supabase-js');
-const { parsearTextoPDF } = require('../../lib/pdfParser');
+import formidable from 'formidable';
+import fs from 'fs';
+import { createClient } from '@supabase/supabase-js';
 
 export const config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false },
 };
 
 const supabase = createClient(
@@ -20,6 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 1. Recibir el archivo PDF
     const form = formidable({ maxFileSize: 15 * 1024 * 1024 });
     const [, files] = await form.parse(req);
     const archivo = files.pdf?.[0];
@@ -28,97 +26,90 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'No se recibió ningún archivo PDF' });
     }
 
+    // 2. Leer el PDF y convertir a base64
     const buffer = fs.readFileSync(archivo.filepath);
+    const pdfBase64 = buffer.toString('base64');
 
-    let pdfData;
-    try {
-      const pdfParse = require('pdf-parse/lib/pdf-parse.js');
-      pdfData = await pdfParse(buffer);
-    } catch (e1) {
-      try {
-        const pdfParse = require('pdf-parse');
-        pdfData = await pdfParse(buffer);
-      } catch (e2) {
-        return res.status(500).json({
-          error: 'No se pudo leer el PDF: ' + e2.message,
-        });
-      }
+    // 3. Llamar a la función Python para que parsee el PDF
+    const host = req.headers.host;
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const pythonUrl = `${protocol}://${host}/api/parse-pdf`;
+
+    const pythonRes = await fetch(pythonUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pdf_base64: pdfBase64 }),
+    });
+
+    const parsed = await pythonRes.json();
+
+    if (!pythonRes.ok) {
+      return res.status(400).json({ error: parsed.error || 'Error al parsear el PDF' });
     }
 
-    if (!pdfData || !pdfData.text || pdfData.text.length < 100) {
-      return res.status(400).json({
-        error: 'El PDF no contiene texto legible.',
-      });
+    const { fecha, tasa_bcv, productos } = parsed;
+
+    if (!productos || productos.length === 0) {
+      return res.status(400).json({ error: 'No se encontraron productos en el PDF' });
     }
 
-    const { fecha, tasaBcv, productos } = parsearTextoPDF(pdfData.text);
-
-    console.log('PDF procesado - Productos:', productos.length, 'Fecha:', fecha, 'Tasa:', tasaBcv);
-
-    if (productos.length === 0) {
-      return res.status(400).json({
-        error: 'No se encontraron productos en el PDF.',
-        debug_text: pdfData.text.substring(0, 1000),
-      });
-    }
-
+    // 4. Guardar historial del PDF
     await supabase.from('pdfs_historial').insert({
       nombre_archivo: archivo.originalFilename || 'lista_precios.pdf',
       fecha_pdf: fecha,
-      tasa_bcv: tasaBcv,
+      tasa_bcv: tasa_bcv,
       total_productos: productos.length,
     });
 
+    // 5. Actualizar precios en Supabase
     let actualizados = 0;
     let creados = 0;
 
     for (const prod of productos) {
-      try {
-        const { data: existente } = await supabase
-          .from('productos')
-          .select('id, precio_bs')
-          .eq('nombre_pdf', prod.nombre_pdf)
-          .maybeSingle();
+      const { data: existente } = await supabase
+        .from('productos')
+        .select('id, precio_bs')
+        .eq('nombre_pdf', prod.nombre_pdf)
+        .maybeSingle();
 
-        if (existente) {
-          await supabase
-            .from('productos')
-            .update({
-              precio_anterior_bs: existente.precio_bs,
-              precio_bs: prod.precio_bs,
-              nombre_display: prod.nombre_display,
-              fecha_pdf: fecha,
-              tasa_bcv: tasaBcv,
-            })
-            .eq('id', existente.id);
-          actualizados++;
-        } else {
-          await supabase.from('productos').insert({
-            nombre_pdf: prod.nombre_pdf,
-            nombre_display: prod.nombre_display,
+      if (existente) {
+        await supabase
+          .from('productos')
+          .update({
+            precio_anterior_bs: existente.precio_bs,
             precio_bs: prod.precio_bs,
+            nombre_display: prod.nombre_display,
             fecha_pdf: fecha,
-            tasa_bcv: tasaBcv,
-          });
-          creados++;
-        }
-      } catch (e) {
-        console.error('Error guardando producto:', prod.nombre_pdf, e.message);
+            tasa_bcv: tasa_bcv,
+          })
+          .eq('id', existente.id);
+        actualizados++;
+      } else {
+        await supabase.from('productos').insert({
+          nombre_pdf: prod.nombre_pdf,
+          nombre_display: prod.nombre_display,
+          precio_bs: prod.precio_bs,
+          fecha_pdf: fecha,
+          tasa_bcv: tasa_bcv,
+        });
+        creados++;
       }
     }
 
+    // 6. Limpiar archivo temporal
     try { fs.unlinkSync(archivo.filepath); } catch (_) {}
 
     return res.status(200).json({
       ok: true,
       fecha,
-      tasaBcv,
+      tasaBcv: tasa_bcv,
       totalEnPdf: productos.length,
       actualizados,
       creados,
     });
+
   } catch (error) {
-    console.error('Error general:', error);
+    console.error('Error en upload-pdf:', error);
     return res.status(500).json({ error: error.message });
   }
 }
