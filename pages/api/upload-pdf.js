@@ -33,8 +33,8 @@ export default async function handler(req, res) {
     // Leer el archivo
     const buffer = fs.readFileSync(archivo.filepath);
 
-    // Parsear el PDF
-    const pdfParse = require('pdf-parse');
+    // Parsear el PDF (importación especial para compatibilidad con Vercel)
+    const pdfParse = require('pdf-parse/lib/pdf-parse');
     const pdfData = await pdfParse(buffer);
     const { fecha, tasaBcv, productos } = parsearTextoPDF(pdfData.text);
 
