@@ -11,14 +11,29 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Obtener todos los productos ordenados alfabéticamente
-    const { data: productos, error } = await supabase
-      .from('productos')
-      .select('*')
-      .order('nombre_display', { ascending: true })
-      .limit(5000);
+    // Traer TODOS los productos usando paginación
+    // Supabase tiene límite de 1000 por defecto, así que hacemos múltiples llamadas
+    let todos = [];
+    let desde = 0;
+    const POR_PAGINA = 1000;
 
-    if (error) throw error;
+    while (true) {
+      const { data, error } = await supabase
+        .from('productos')
+        .select('*')
+        .order('nombre_display', { ascending: true })
+        .range(desde, desde + POR_PAGINA - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      todos = todos.concat(data);
+
+      // Si trajo menos de POR_PAGINA, ya llegamos al final
+      if (data.length < POR_PAGINA) break;
+
+      desde += POR_PAGINA;
+    }
 
     // Obtener info del último PDF cargado
     const { data: ultimoPdf } = await supabase
@@ -29,7 +44,7 @@ export default async function handler(req, res) {
       .single();
 
     return res.status(200).json({
-      productos: productos || [],
+      productos: todos,
       infoPdf: ultimoPdf || null,
     });
   } catch (error) {
