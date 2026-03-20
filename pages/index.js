@@ -322,7 +322,7 @@ function TodosCard({ producto, yaEnTienda, onAgregar }) {
   return (
     <div className="todos-card">
       <div className="todos-card-info">
-        <div className="todos-card-nombre">{producto.nombre_display || producto.nombre_pdf}</div>
+        <div className="todos-card-nombre">{producto.nombre_pdf}</div>
         <div className="todos-card-precio">
           {formatBs(producto.precio_bs)}
           {cambio && (
@@ -546,7 +546,7 @@ export default function Home() {
   const tiendaIds = new Set(tiendaItems.map((i) => i.producto_id).filter(Boolean));
 
   const todosFiltrados = todosProductos.filter((p) => {
-    const nombre = (p.nombre_display || p.nombre_pdf || '').toLowerCase();
+    const nombre = (p.nombre_pdf || '').toLowerCase();
     return nombre.includes(busqueda.toLowerCase());
   });
 
