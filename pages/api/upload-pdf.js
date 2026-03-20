@@ -77,8 +77,9 @@ export default async function handler(req, res) {
       updated_at: new Date().toISOString(),
     }));
 
-    // 6. Upsert en lotes de 100 (más rápido y seguro)
-    const BATCH_SIZE = 100;
+    // 6. Upsert en lotes dinámicos según cantidad de productos
+    // Siempre máximo 10 lotes para mantener velocidad
+    const BATCH_SIZE = Math.max(100, Math.ceil(productosParaUpsert.length / 10));
     let totalUpserted = 0;
 
     for (let i = 0; i < productosParaUpsert.length; i += BATCH_SIZE) {
