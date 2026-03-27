@@ -227,12 +227,17 @@ function ModalEditar({ item, onGuardar, onCerrar }) {
 // CARD MI TIENDA
 // ============================================================
 
-function TiendaCard({ item, index, onEditar, onEliminar, provided }) {
+function TiendaCard({ item, index, onEditar, onEliminar, provided, ultimaFechaPdf }) {
   const precio = item.precio_manual || item.productos?.precio_bs || 0;
   const cambio =
     item.productos?.precio_anterior_bs
       ? indicadorCambio(item.productos.precio_bs, item.productos.precio_anterior_bs)
       : null;
+
+  const noEstaEnPdf = ultimaFechaPdf &&
+    item.productos?.fecha_pdf &&
+    item.productos.fecha_pdf !== ultimaFechaPdf &&
+    !item.es_pendiente;
 
   const nombre =
     item.nombre_personalizado || item.nombre_pendiente || 'Sin nombre';
@@ -261,6 +266,11 @@ function TiendaCard({ item, index, onEditar, onEliminar, provided }) {
       {item.es_pendiente && (
         <div className="badge-pendiente">
           ⏳ Pendiente — no está en el PDF actual
+        </div>
+      )}
+      {noEstaEnPdf && (
+        <div className="badge-no-en-pdf">
+          ⚠️ No está en el PDF más reciente
         </div>
       )}
 
@@ -366,6 +376,7 @@ export default function Home() {
   const [modalItem, setModalItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [infoPdf, setInfoPdf] = useState(null);
+  const [ultimaFechaPdf, setUltimaFechaPdf] = useState(null);
   const fileInputRef = useRef(null);
 
   // ---- Cargar datos ----
@@ -376,6 +387,7 @@ export default function Home() {
       const res = await fetch('/api/tienda');
       const data = await res.json();
       if (data.items) setTiendaItems(data.items);
+      if (data.ultimaFechaPdf) setUltimaFechaPdf(data.ultimaFechaPdf);
     } catch (e) {
       mostrarToast('Error al cargar Mi Tienda', 'error');
     } finally {
@@ -681,6 +693,7 @@ export default function Home() {
                               onEditar={setModalItem}
                               onEliminar={handleEliminar}
                               provided={provided}
+                              ultimaFechaPdf={ultimaFechaPdf}
                             />
                           )}
                         </Draggable>
