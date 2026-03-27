@@ -36,7 +36,18 @@ async function getTienda(req, res) {
 
     if (error) throw error;
 
-    return res.status(200).json({ items: items || [] });
+    // Obtener la fecha del último PDF cargado
+    const { data: ultimoPdf } = await supabase
+      .from('pdfs_historial')
+      .select('fecha_pdf')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    return res.status(200).json({ 
+      items: items || [],
+      ultimaFechaPdf: ultimoPdf?.fecha_pdf || null,
+    });
   } catch (error) {
     console.error('Error cargando tienda:', error);
     return res.status(500).json({ error: 'Error al cargar Mi Tienda' });
