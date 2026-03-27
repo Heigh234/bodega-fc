@@ -434,6 +434,20 @@ body {
   color: var(--verde);
 }
 
+.badge-no-en-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1.5px solid #fed7aa;
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin: 4px 14px 10px;
+}
+
 .badge-pendiente {
   display: inline-flex;
   align-items: center;
