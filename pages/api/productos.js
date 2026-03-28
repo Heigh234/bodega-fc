@@ -11,8 +11,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Traer TODOS los productos usando paginación
-    // Supabase tiene límite de 1000 por defecto, así que hacemos múltiples llamadas
+    // Obtener la fecha del último PDF cargado
+    const { data: ultimoPdf } = await supabase
+      .from('pdfs_historial')
+      .select('fecha_pdf, tasa_bcv')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!ultimoPdf) {
+      return res.status(200).json({ productos: [], infoPdf: null });
+    }
+
+    // Traer SOLO los productos del último PDF cargado usando paginación
     let todos = [];
     let desde = 0;
     const POR_PAGINA = 1000;
@@ -21,31 +32,21 @@ export default async function handler(req, res) {
       const { data, error } = await supabase
         .from('productos')
         .select('*')
-        .order('nombre_display', { ascending: true })
+        .eq('fecha_pdf', ultimoPdf.fecha_pdf)
+        .order('nombre_pdf', { ascending: true })
         .range(desde, desde + POR_PAGINA - 1);
 
       if (error) throw error;
       if (!data || data.length === 0) break;
 
       todos = todos.concat(data);
-
-      // Si trajo menos de POR_PAGINA, ya llegamos al final
       if (data.length < POR_PAGINA) break;
-
       desde += POR_PAGINA;
     }
 
-    // Obtener info del último PDF cargado
-    const { data: ultimoPdf } = await supabase
-      .from('pdfs_historial')
-      .select('fecha_pdf, tasa_bcv')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
     return res.status(200).json({
       productos: todos,
-      infoPdf: ultimoPdf || null,
+      infoPdf: ultimoPdf,
     });
   } catch (error) {
     console.error('Error cargando productos:', error);
