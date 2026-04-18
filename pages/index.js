@@ -427,14 +427,20 @@ export default function Home() {
     if (!archivo) return;
 
     setSubiendo(true);
-    mostrarToast('⏳ Procesando PDF...');
+    mostrarToast('⏳ Procesando PDF con IA...');
 
     const formData = new FormData();
     formData.append('pdf', archivo);
 
     try {
-      const res = await fetch('/api/upload-pdf', {
+      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/upload-pdf`;
+
+      const res = await fetch(url, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        },
         body: formData,
       });
       const data = await res.json();
