@@ -57,32 +57,41 @@ def parsear_pdf(pdf_bytes):
         'TASA DEL DIA', 'FECHA:', 'C. A.'
     ]
 
-    # Patrón principal: "NOMBRE DEL PRODUCTO 3 643.20Bs"
-    patron = re.compile(
-        r'^([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9 .,()\/\-\'%+]{2,}?)\s+((?:\d[\d\s]{0,8})\.\d{2})Bs\s*$'
-    )
+    # Patrón para extraer el precio del FINAL de la línea.
+    # Formato venezolano: hasta 6 dígitos con separador de miles opcional.
+    # Ejemplos válidos: 388.00 | 3 841.20 | 59 092.20 | 139 874.00
+    # NO debe coincidir con: 18 3 757.20 (18 no es un separador de miles válido)
+    # La clave: \d{1,3} + grupo opcional \s\d{3} (exactamente 3 dígitos tras el espacio)
+    precio_final = re.compile(r'\s+(\d{1,3}(?:\s\d{3})?\.\d{2})Bs\s*$')
 
     for linea in lineas:
         # Ignorar líneas de cabecera
         if any(ig in linea for ig in ignoradas):
             continue
 
-        m = patron.match(linea)
-        if m:
-            nombre = m.group(1).strip()
-            precio_str = m.group(2).replace(' ', '')
-            try:
-                precio = float(precio_str)
-            except ValueError:
-                continue
+        m = precio_final.search(linea)
+        if not m:
+            continue
 
-            if len(nombre) >= 4 and precio > 0 and nombre not in vistos:
-                vistos.add(nombre)
-                productos.append({
-                    'nombre_pdf': nombre,
-                    'nombre_display': generar_nombre_display(nombre),
-                    'precio_bs': precio,
-                })
+        nombre = linea[:m.start()].strip()
+        precio_str = m.group(1).replace(' ', '')
+
+        try:
+            precio = float(precio_str)
+        except ValueError:
+            continue
+
+        # Validar: nombre empieza con mayúscula, tiene al menos 4 chars, precio > 0
+        if (len(nombre) >= 4
+                and re.match(r'^[A-ZÁÉÍÓÚÑ]', nombre)
+                and precio > 0
+                and nombre not in vistos):
+            vistos.add(nombre)
+            productos.append({
+                'nombre_pdf': nombre,
+                'nombre_display': generar_nombre_display(nombre),
+                'precio_bs': precio,
+            })
 
     return {
         'fecha': fecha,
