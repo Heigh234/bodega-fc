@@ -15,7 +15,7 @@ export const config = {
   },
 };
 
-const GEMINI_MODEL = 'gemini-2.5-flash-preview-04-17';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const PROMPT = `Eres un extractor de datos para una lista de precios de distribuidora venezolana en formato PDF.
