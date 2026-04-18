@@ -1,3 +1,4 @@
+
 import formidable from 'formidable';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
@@ -67,6 +68,7 @@ export default async function handler(req, res) {
     }
 
     // 5. Preparar todos los productos para upsert en lote
+    const inicioUpsert = new Date().toISOString();
     const productosParaUpsert = productos.map((prod) => ({
       nombre_pdf: prod.nombre_pdf,
       nombre_display: prod.nombre_display,
@@ -93,6 +95,19 @@ export default async function handler(req, res) {
       } else {
         totalUpserted += lote.length;
       }
+    }
+
+    // 6.5 Limpiar productos huérfanos de esta misma fecha.
+    // Son productos que quedaron de uploads fallidos o anteriores del mismo día
+    // y que ya no forman parte del PDF actual (no fueron tocados por el upsert de arriba).
+    const { error: deleteError } = await supabase
+      .from('productos')
+      .delete()
+      .eq('fecha_pdf', fecha)
+      .lt('updated_at', inicioUpsert);
+
+    if (deleteError) {
+      console.error('Error limpiando huérfanos:', deleteError);
     }
 
     // 7. Guardar historial del PDF
