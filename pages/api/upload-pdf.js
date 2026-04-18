@@ -1,11 +1,12 @@
 import formidable from 'formidable';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
-import pdfParse from 'pdf-parse';
+// Fix: importar desde /lib/ para evitar el bug de pdf-parse en serverless
+// (el index.js intenta leer un archivo de test que no existe en Vercel)
+const pdfParse = require('pdf-parse/lib/pdf-parse.js');
 
 export const config = {
   api: { bodyParser: false },
-  maxDuration: 60, // Vercel Hobby plan permite hasta 60s
 };
 
 const supabase = createClient(
@@ -211,3 +212,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message });
   }
 }
+
+
